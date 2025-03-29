@@ -4,7 +4,19 @@ const router = express.Router();
 const Job = require('../models/Job');
 const authMiddleware = require('../middleware/auth');
 
-// Post a new job
+// Get all jobs
+router.get('/', async (req, res) => {
+  try {
+    const jobs = await Job.find().populate('postedBy', 'name');
+    console.log('Jobs fetched from DB:', jobs); // Log the jobs for debugging
+    res.json(jobs);
+  } catch (err) {
+    console.error('Error fetching jobs:', err);
+    res.status(500).json({ message: 'Error fetching jobs' });
+  }
+});
+
+// Other routes (post job, apply, get applications) remain as previously defined
 router.post('/', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'professional-body') {
@@ -18,17 +30,6 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 });
 
-// Get all jobs
-router.get('/', async (req, res) => {
-  try {
-    const jobs = await Job.find().populate('postedBy', 'name');
-    res.json(jobs);
-  } catch (err) {
-    res.status(500).json({ message: 'Error fetching jobs' });
-  }
-});
-
-// Apply for a job
 router.post('/:id/apply', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'worker') {
@@ -50,7 +51,6 @@ router.post('/:id/apply', authMiddleware, async (req, res) => {
   }
 });
 
-// Get applications for jobs posted by the professional body
 router.get('/applications', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'professional-body') {
