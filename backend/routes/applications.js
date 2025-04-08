@@ -1,74 +1,152 @@
+// TaskConnect/backend/routes/jobs.js (snippet)
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth');
-const Application = require('../models/Application');
 const Job = require('../models/Job');
+const authMiddleware = require('../middleware/auth');
 
-router.post('/apply/:jobId', auth, async (req, res) => {
+router.get('/applications', authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== 'worker') {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    const job = await Job.findById(req.params.jobId);
-    if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
-    }
-    const existingApplication = await Application.findOne({
-      job: req.params.jobId,
-      worker: req.user.id
-    });
-    if (existingApplication) {
-      return res.status(400).json({ message: 'You have already applied to this job' });
-    }
-    const application = new Application({
-      job: req.params.jobId,
-      worker: req.user.id
-    });
-    await application.save();
-    res.status(201).json({ message: 'Application submitted successfully', application });
-  } catch (err) {
-    res.status(500).json({ message: 'Error applying to job: ' + err.message });
-  }
-});
-
-router.get('/my-jobs', auth, async (req, res) => {
-  try {
+    console.log('Fetching applications for user:', req.user); // Log the authenticated user
     if (req.user.role !== 'professional-body') {
+      console.log('Access denied: User role is not professional-body');
       return res.status(403).json({ message: 'Access denied' });
     }
-    const jobs = await Job.find({ professionalBody: req.user.id });
-    const jobIds = jobs.map(job => job._id);
-    const applications = await Application.find({ job: { $in: jobIds } })
-      .populate('job', 'title')
-      .populate('worker', 'name email');
+    console.log('Querying jobs with postedBy:', req.user.id); // Log the query parameter
+    const jobs = await Job.find({ postedBy: req.user.id }).populate({
+      path: 'applications.worker',
+      select: 'name email category'
+    });
+    console.log('Raw jobs data with populated workers:', jobs); // Log raw data
+    if (!jobs || jobs.length === 0) {
+      console.log('No jobs found for this user');
+    }
+    const applications = jobs.flatMap(job =>
+      job.applications.map(app => ({
+        _id: app._id,
+        job: { _id: job._id, title: job.title },
+        worker: app.worker, // Should include populated data
+        appliedAt: app.appliedAt,
+        status: app.status
+      }))
+    );
+    console.log('Processed applications:', applications); // Log processed data
+    if (applications.length === 0) {
+      console.log('No applications found for this user');
+    }
     res.json(applications);
   } catch (err) {
-    res.status(500).json({ message: 'Error fetching applications: ' + err.message });
+    console.error('Error fetching applications:', err.message, err.stack); // Detailed error logging
+    res.status(500).json({ message: 'Error fetching applications', error: err.message });
   }
 });
 
-router.put('/status/:applicationId', auth, async (req, res) => {
+// Other routes (apply, get jobs, post job, accept, reject) remain as previously defined
+router.post('/:id/apply', authMiddleware, async (req, res) => {
+  try {
+    console.log('Apply request received for job ID:', req.params.id);
+    console.log('Authenticated user:', req.user);
+    if (req.user.role !== 'worker') {
+      console.log('Access denied: User role is not worker');
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const job = await Job.findById(req.params.id);
+    console.log('Found job:', job);
+    if (!job) {
+      console.log('Job not found');
+      return res.status(404).json({ message: 'Job not found' });
+    }
+    const alreadyApplied = job.applications.some(app => app.worker.toString() === req.user.id);
+    if (alreadyApplied) {
+      console.log('Already applied');
+      return res.status(400).json({ message: 'You have already applied for this job' });
+    }
+    job.applications.push({ worker: req.user.id });
+    console.log('Application pushed, job before save:', job);
+    await job.save();
+    console.log('Job after save:', await Job.findById(req.params.id));
+    res.json({ message: 'Application submitted successfully' });
+  } catch (err) {
+    console.error('Error applying for job:', err.message, err.stack);
+    res.status(500).json({ message: 'Error applying for job', error: err.message });
+  }
+});
+
+router.get('/', async (req, res) => {
+  try {
+    const jobs = await Job.find().populate('postedBy', 'name');
+    const sanitizedJobs = jobs.map(job => ({
+      ...job.toObject(),
+      postedBy: job.postedBy ? { name: job.postedBy.name || 'Unknown' } : { name: 'Unknown' }
+    }));
+    res.json(sanitizedJobs);
+  } catch (err) {
+    console.error('Error fetching jobs:', err);
+    res.status(500).json({ message: 'Error fetching jobs' });
+  }
+});
+
+router.post('/', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'professional-body') {
       return res.status(403).json({ message: 'Access denied' });
     }
-    const { status } = req.body;
-    if (!['accepted', 'rejected'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+    const job = new Job({ ...req.body, postedBy: req.user.id });
+    await job.save();
+    res.status(201).json({ message: 'Job posted successfully', job });
+  } catch (err) {
+    res.status(500).json({ message: 'Error posting job' });
+  }
+});
+
+router.post('/applications/:applicationId/accept', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'professional-body') {
+      return res.status(403).json({ message: 'Access denied' });
     }
-    const application = await Application.findById(req.params.applicationId);
+    const { applicationId } = req.params;
+    const job = await Job.findOne({ 'applications._id': applicationId });
+    if (!job) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+    if (job.postedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const application = job.applications.id(applicationId);
     if (!application) {
       return res.status(404).json({ message: 'Application not found' });
     }
-    const job = await Job.findById(application.job);
-    if (job.professionalBody.toString() !== req.user.id) {
-      return res.status(403).json({ message: 'Not authorized to update this application' });
-    }
-    application.status = status;
-    await application.save();
-    res.json({ message: `Application ${status}`, application });
+    application.status = 'accepted';
+    await job.save();
+    res.json({ message: 'Application accepted successfully' });
   } catch (err) {
-    res.status(500).json({ message: 'Error updating application: ' + err.message });
+    console.error(err);
+    res.status(500).json({ message: 'Error accepting application' });
+  }
+});
+
+router.post('/applications/:applicationId/reject', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'professional-body') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const { applicationId } = req.params;
+    const job = await Job.findOne({ 'applications._id': applicationId });
+    if (!job) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+    if (job.postedBy.toString() !== req.user.id) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const application = job.applications.id(applicationId);
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+    application.status = 'rejected';
+    await job.save();
+    res.json({ message: 'Application rejected successfully' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Error rejecting application' });
   }
 });
 

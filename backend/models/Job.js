@@ -11,7 +11,8 @@ const jobSchema = new mongoose.Schema({
   applications: [
     {
       worker: { type: mongoose.Schema.Types.ObjectId, ref: 'Worker', required: true },
-      appliedAt: { type: Date, default: Date.now }
+      appliedAt: { type: Date, default: Date.now },
+      status: { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' } // Add status field
     }
   ]
 });
