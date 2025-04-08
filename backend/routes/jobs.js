@@ -3,7 +3,6 @@ const router = express.Router();
 const Job = require('../models/Job');
 const authMiddleware = require('../middleware/auth');
 
-// Existing /applications route for Professional Body
 router.get('/applications', authMiddleware, async (req, res) => {
   try {
     console.log('Fetching applications for user:', req.user);
@@ -37,45 +36,6 @@ router.get('/applications', authMiddleware, async (req, res) => {
   }
 });
 
-// New /my-applications route for Worker
-router.get('/my-applications', authMiddleware, async (req, res) => {
-  try {
-    console.log('Fetching my applications for user:', req.user);
-    if (req.user.role !== 'worker') {
-      console.log('Access denied: User role is not worker');
-      return res.status(403).json({ message: 'Access denied' });
-    }
-    console.log('Querying jobs with worker:', req.user.id);
-    const jobs = await Job.find({ 'applications.worker': req.user.id }).populate({
-      path: 'postedBy',
-      select: 'name' // Populate Professional Body name for context
-    }).populate({
-      path: 'applications.worker',
-      select: 'name email category' // Populate Worker details (self-reference for verification)
-    });
-    console.log('Raw jobs data with populations:', jobs);
-    const applications = jobs.flatMap(job =>
-      job.applications
-        .filter(app => app.worker.toString() === req.user.id) // Ensure only the worker's applications
-        .map(app => ({
-          _id: app._id,
-          job: { _id: job._id, title: job.title, postedBy: job.postedBy },
-          appliedAt: app.appliedAt,
-          status: app.status || 'pending'
-        }))
-    );
-    console.log('Processed my applications:', applications);
-    if (applications.length === 0) {
-      console.log('No applications found for this worker');
-    }
-    res.json(applications);
-  } catch (err) {
-    console.error('Error fetching my applications:', err.message, err.stack);
-    res.status(500).json({ message: 'Error fetching my applications', error: err.message });
-  }
-});
-
-// Existing apply route
 router.post('/:id/apply', authMiddleware, async (req, res) => {
   try {
     console.log('Apply request received for job ID:', req.params.id);
@@ -106,7 +66,6 @@ router.post('/:id/apply', authMiddleware, async (req, res) => {
   }
 });
 
-// Existing get, post, accept, and reject routes remain unchanged
 router.get('/', async (req, res) => {
   try {
     const jobs = await Job.find().populate('postedBy', 'name');
