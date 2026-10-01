@@ -60,3 +60,4 @@ Professional body registers → logs in → creates job → worker registers →
 - Use a strong production `JWT_SECRET`.
 - Restrict CORS in production.
 - The current architecture intentionally keeps Worker and ProfessionalBody as separate collections to match the design developed in the rebuild.
+# TaskConnect
