@@ -1,0 +1,1 @@
+const express=require('express');const c=require('../controllers/report.controller');const {authenticate}=require('../middleware/auth.middleware');const {authorize}=require('../middleware/role.middleware');const r=express.Router();r.get('/monthly',authenticate,authorize('professional-body'),c.monthly);module.exports=r;

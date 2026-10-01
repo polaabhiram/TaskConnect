@@ -1,0 +1,1 @@
+require('dotenv').config();const app=require('./app');const connectDatabase=require('./config/database');const PORT=process.env.PORT||5001;if(!process.env.JWT_SECRET)throw new Error('JWT_SECRET is required');connectDatabase().then(()=>app.listen(PORT,()=>console.log(`Server running on port ${PORT}`))).catch(()=>process.exit(1));

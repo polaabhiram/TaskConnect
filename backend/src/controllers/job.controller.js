@@ -1,0 +1,7 @@
+const s=require('../services/job.service');
+const getJobs=async(req,res,next)=>{try{res.json({success:true,data:await s.getAllJobs(req.query)});}catch(e){next(e)}};
+const getJob=async(req,res,next)=>{try{const job=await s.getJobById(req.params.id);if(!job)return res.status(404).json({success:false,message:'Job not found'});res.json({success:true,data:job});}catch(e){next(e)}};
+const createJob=async(req,res,next)=>{try{const {title,description,category,location,budget}=req.body;res.status(201).json({success:true,data:await s.createJob({title,description,category,location,budget,postedBy:req.user.id})});}catch(e){next(e)}};
+const updateJob=async(req,res,next)=>{try{const job=await s.getJobById(req.params.id);if(!job)return res.status(404).json({success:false,message:'Job not found'});if(String(job.postedBy._id)!==String(req.user.id))return res.status(403).json({success:false,message:'You can only modify your own jobs'});const updated=await s.updateJob(req.params.id,req.body);res.json({success:true,data:updated});}catch(e){next(e)}};
+const deleteJob=async(req,res,next)=>{try{const job=await s.getJobById(req.params.id);if(!job)return res.status(404).json({success:false,message:'Job not found'});if(String(job.postedBy._id)!==String(req.user.id))return res.status(403).json({success:false,message:'You can only delete your own jobs'});await s.deleteJob(req.params.id);res.json({success:true,message:'Job deleted successfully'});}catch(e){next(e)}};
+module.exports={getJobs,getJob,createJob,updateJob,deleteJob};

@@ -1,0 +1,2 @@
+const express=require('express');const c=require('../controllers/application.controller');const {authenticate}=require('../middleware/auth.middleware');const {authorize}=require('../middleware/role.middleware');const r=express.Router();
+r.post('/',authenticate,authorize('worker'),c.apply);r.get('/mine',authenticate,authorize('worker'),c.myApplications);r.get('/received',authenticate,authorize('professional-body'),c.received);r.patch('/:id/status',authenticate,authorize('professional-body'),c.updateStatus);module.exports=r;

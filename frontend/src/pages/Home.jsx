@@ -1,0 +1,1 @@
+import {Link} from 'react-router-dom';export default function Home(){return <section className="hero center"><h1>TaskConnect</h1><p>Connect workers with professional bodies and manage recruitment end-to-end.</p><div><Link className="button" to="/register">Get started</Link> <Link className="button secondary" to="/login">Login</Link></div></section>}

@@ -1,0 +1,2 @@
+const express=require('express');const c=require('../controllers/job.controller');const {authenticate}=require('../middleware/auth.middleware');const {authorize}=require('../middleware/role.middleware');const r=express.Router();
+r.get('/',c.getJobs);r.get('/:id',c.getJob);r.post('/',authenticate,authorize('professional-body'),c.createJob);r.put('/:id',authenticate,authorize('professional-body'),c.updateJob);r.delete('/:id',authenticate,authorize('professional-body'),c.deleteJob);module.exports=r;

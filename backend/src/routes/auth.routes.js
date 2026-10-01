@@ -1,0 +1,2 @@
+const express=require('express');const c=require('../controllers/auth.controller');const {authenticate}=require('../middleware/auth.middleware');const r=express.Router();
+r.post('/register/worker',c.registerWorker);r.post('/register/professional-body',c.registerProfessionalBody);r.post('/login/worker',c.loginWorker);r.post('/login/professional-body',c.loginProfessionalBody);r.get('/me',authenticate,c.me);module.exports=r;
